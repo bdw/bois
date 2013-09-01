@@ -1,9 +1,9 @@
 package bois
 
 import (
-//	"errors"
-//	"strings"
-//	"strconv"
+	"errors"
+	"strconv"
+	"regexp"
 	"image"
 	"code.google.com/p/graphics-go/graphics"
 	"image/draw"
@@ -11,13 +11,73 @@ import (
 //	"image/png"
 )
 
+var SuffixRegexp = regexp.MustCompile("\\.(jpe?g|png)$")
+var ScaleRegexp = regexp.MustCompile("^(scale-)?(\\d+)x(\\d+)$")
+var ClipRegexp = regexp.MustCompile("^clip-(\\d+)x(\\d+)$")
+var CropRegexp = regexp.MustCompile("^crop-(\\d+)x(\\d+)(-x(\\d+)y(\\d+))?$")
+var CutRegexp = regexp.MustCompile("^cut-(\\d+)x(\\d+)-t(\\d+)l(\\d+)(-s(\\d+)x(\\d+))?$")
+
+
 type Operation interface {
 	Apply(image.Image) (image.Image, error)
 }
 
 type Format struct {
-	name, _type string
+	name, suffix string
 	op Operation
+}
+
+func ParseFormat(format string) (f *Format, err error) {
+	f = new(Format)
+	if suffix := SuffixRegexp.FindStringIndex(format); suffix != nil {
+		f.name = format  // well formed name
+		f.suffix = format[suffix[0]:suffix[1]]
+		f.op, err = ParseOperation(format[:suffix[0]])
+	} else {
+		f.suffix = ".jpeg"
+		f.name = format + f.suffix
+		f.op, err = ParseOperation(format)
+	}
+	if err != nil {
+		f = nil
+	}
+	return
+}
+
+func ParseOperation(format string) (Operation, error)  {
+	if parts := ScaleRegexp.FindStringSubmatch(format); parts != nil {
+		width, _ := strconv.Atoi(parts[2])
+		height, _ := strconv.Atoi(parts[3])
+		return scaleOperation{width, height}, nil
+	}
+	if parts := ClipRegexp.FindStringSubmatch(format); parts != nil {
+		width, _ := strconv.Atoi(parts[1])
+		height, _ := strconv.Atoi(parts[2])
+		return clipOperation{width, height}, nil
+	}
+	if parts := CropRegexp.FindStringSubmatch(format); parts != nil {
+		width, _ := strconv.Atoi(parts[1])
+		height, _ := strconv.Atoi(parts[2])
+		x, y := 50, 50
+		if len(parts[3]) > 0 {
+			x, _ = strconv.Atoi(parts[4])
+			y, _ = strconv.Atoi(parts[5])
+		}
+		return cropOperation{width, height, x, y}, nil
+	}
+	if parts := CutRegexp.FindStringSubmatch(format); parts != nil {
+		width, _ := strconv.Atoi(parts[1])
+		height, _ := strconv.Atoi(parts[2])
+		left, _ := strconv.Atoi(parts[3])
+		top, _ := strconv.Atoi(parts[4])
+		sX, sY := width, height
+		if len(parts[5]) > 0 {
+			sX, _ = strconv.Atoi(parts[6])
+			sY, _ = strconv.Atoi(parts[7])
+		}
+		return cutOperation{width, height, left, top, sX, sY}, nil
+	}
+	return nil, errors.New("cannot parse format")
 }
 
 
@@ -112,7 +172,7 @@ func (s clipOperation) Apply(in image.Image) (image.Image, error) {
 
 type cutOperation struct {
 	width, height int
-	top, left int
+	left, top int
 	scaleWidth, scaleHeight int
 }
 
