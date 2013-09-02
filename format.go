@@ -1,12 +1,12 @@
 package bois
 
 import (
-	"errors"
-	"strconv"
-	"regexp"
-	"image"
 	"code.google.com/p/graphics-go/graphics"
+	"errors"
+	"image"
 	"image/draw"
+	"regexp"
+	"strconv"
 //	"image/jpeg"
 //	"image/png"
 )
@@ -17,20 +17,19 @@ var ClipRegexp = regexp.MustCompile("^clip-(\\d+)x(\\d+)$")
 var CropRegexp = regexp.MustCompile("^crop-(\\d+)x(\\d+)(-x(\\d+)y(\\d+))?$")
 var CutRegexp = regexp.MustCompile("^cut-(\\d+)x(\\d+)-t(\\d+)l(\\d+)(-s(\\d+)x(\\d+))?$")
 
-
 type Operation interface {
 	Apply(image.Image) (image.Image, error)
 }
 
 type Format struct {
 	name, suffix string
-	op Operation
+	op           Operation
 }
 
 func ParseFormat(format string) (f *Format, err error) {
 	f = new(Format)
 	if suffix := SuffixRegexp.FindStringIndex(format); suffix != nil {
-		f.name = format  // well formed name
+		f.name = format // well formed name
 		f.suffix = format[suffix[0]:suffix[1]]
 		f.op, err = ParseOperation(format[:suffix[0]])
 	} else {
@@ -44,7 +43,7 @@ func ParseFormat(format string) (f *Format, err error) {
 	return
 }
 
-func ParseOperation(format string) (Operation, error)  {
+func ParseOperation(format string) (Operation, error) {
 	if parts := ScaleRegexp.FindStringSubmatch(format); parts != nil {
 		width, _ := strconv.Atoi(parts[2])
 		height, _ := strconv.Atoi(parts[3])
@@ -80,7 +79,6 @@ func ParseOperation(format string) (Operation, error)  {
 	return nil, errors.New("cannot parse format")
 }
 
-
 func min(a, b int) int {
 	if a > b {
 		return b
@@ -107,13 +105,13 @@ func (s scaleOperation) Apply(in image.Image) (image.Image, error) {
 	out := image.NewRGBA(image.Rect(0, 0, s.width, s.height))
 	if err := graphics.Scale(out, in); err != nil {
 		return nil, err
-	} 
+	}
 	return out, nil
 }
 
 type cropOperation struct {
 	width, height int
-	x, y int // center points, as a percentage
+	x, y          int // center points, as a percentage
 }
 
 func (s cropOperation) Apply(in image.Image) (image.Image, error) {
@@ -138,8 +136,8 @@ func (s cropOperation) Apply(in image.Image) (image.Image, error) {
 	centerX := (s.x * scale.Dx()) / 100
 	centerY := (s.y * scale.Dy()) / 100
 	// clipped points
-	left := clip(0, scale.Dx() - s.width, centerX - (s.width / 2))
-	top := clip(0, scale.Dy() - s.height, centerY - (s.width / 2))
+	left := clip(0, scale.Dx()-s.width, centerX-(s.width/2))
+	top := clip(0, scale.Dy()-s.height, centerY-(s.width/2))
 	// cut the correct piece
 	draw.Draw(out, out.Bounds(), tmp, image.Pt(left, top), draw.Src)
 	return out, nil
@@ -171,8 +169,8 @@ func (s clipOperation) Apply(in image.Image) (image.Image, error) {
 }
 
 type cutOperation struct {
-	width, height int
-	left, top int
+	width, height           int
+	left, top               int
 	scaleWidth, scaleHeight int
 }
 
@@ -181,11 +179,10 @@ func (s cutOperation) Apply(in image.Image) (image.Image, error) {
 	draw.Draw(tmp, tmp.Bounds(), in, image.Pt(s.top, s.left), draw.Src)
 	if s.width == s.scaleWidth && s.height == s.scaleHeight {
 		return tmp, nil
-	} 
+	}
 	out := image.NewRGBA(image.Rect(0, 0, s.scaleWidth, s.scaleHeight))
 	if err := graphics.Scale(out, tmp); err != nil {
 		return nil, err
 	}
 	return out, nil
 }
-
