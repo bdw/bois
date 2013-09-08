@@ -3,12 +3,14 @@ package bois
 import (
 	"code.google.com/p/graphics-go/graphics"
 	"errors"
+	"fmt"
 	"image"
 	"image/draw"
+	"image/jpeg"
+	"image/png"
+	"io"
 	"regexp"
 	"strconv"
-//	"image/jpeg"
-//	"image/png"
 )
 
 var SuffixRegexp = regexp.MustCompile("\\.(jpe?g|png)$")
@@ -21,26 +23,30 @@ type Operation interface {
 	Apply(image.Image) (image.Image, error)
 }
 
-type Format struct {
-	name, suffix string
-	op           Operation
+type Format interface {
+	Save(image.Image, io.Writer) error
+	Suffix() string
 }
 
-func ParseFormat(format string) (f *Format, err error) {
-	f = new(Format)
-	if suffix := SuffixRegexp.FindStringIndex(format); suffix != nil {
-		f.name = format // well formed name
-		f.suffix = format[suffix[0]:suffix[1]]
-		f.op, err = ParseOperation(format[:suffix[0]])
-	} else {
-		f.suffix = ".jpeg"
-		f.name = format + f.suffix
-		f.op, err = ParseOperation(format)
-	}
-	if err != nil {
-		f = nil
-	}
-	return
+type jpegFormat jpeg.Options
+
+func (j jpegFormat) Save(i image.Image, f io.Writer) error {
+	o := jpeg.Options(j)
+	return jpeg.Encode(f, i, &o)
+}
+
+func (j jpegFormat) Suffix() string {
+	return fmt.Sprintf(".%d.jpeg", jpeg.Options(j).Quality)
+}
+
+type pngFormat struct {}
+
+func (p pngFormat) Save(i image.Image, f io.Writer) error {
+	return png.Encode(f, i)
+}
+
+func (p pngFormat) Suffix() string {
+	return ".png"
 }
 
 func ParseOperation(format string) (Operation, error) {
