@@ -1,18 +1,19 @@
 package main
 
 import (
-	"encoding/base64"
 	"crypto/rand"
+	"encoding/base64"
 	"errors"
-	"path"
-	"net/http"
-	"net/url"
-	"log"
-	"strings"
 	"fmt"
 	"image"
 	"image/jpeg"
+	"log"
+	"net/http"
+	"net/url"
 	"os"
+	"path"
+	"strings"
+	"time"
 )
 
 // some constants
@@ -20,7 +21,6 @@ const ItemLength = 18
 const CreateAttempts = 10
 const FanOut = 3
 const SourceFileName = "source.jpeg"
-
 
 type Handler struct {
 	rootDir string
@@ -40,7 +40,6 @@ func (s Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Method Not Allowed", 405)
 	}
 }
-
 
 func randomString() string {
 	slice := make([]byte, ItemLength)
@@ -64,7 +63,7 @@ func (s Handler) urlPath(fullPath string) string {
 }
 
 func (s Handler) createFile() (*os.File, string, error) {
-	flags := os.O_RDWR|os.O_CREATE|os.O_EXCL
+	flags := os.O_RDWR | os.O_CREATE | os.O_EXCL
 	for i := 0; i < CreateAttempts; i++ {
 		dir := path.Join(s.rootDir, dirName(randomString()))
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -83,6 +82,11 @@ func (s Handler) createFile() (*os.File, string, error) {
 	}
 	return nil, "", errors.New("Exceeded attempts to create file")
 }
+
+func makeImage(filename string, file *os.File) error {
+	return nil
+}
+
 
 // Handle an upload request
 func (s Handler) Put(w http.ResponseWriter, r *http.Request) {
@@ -111,7 +115,6 @@ func (s Handler) Put(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-
 // Handle a GET request
 func (s Handler) Get(w http.ResponseWriter, r *http.Request) {
 	fullPath := s.filePath(r.URL)
@@ -134,13 +137,16 @@ func (s Handler) Get(w http.ResponseWriter, r *http.Request) {
 	} else if info.IsDir() {
 		http.Error(w, "Forbidden", 403)
 	} else if info.Size() == 0 {
-		
+		if err = makeImage(fullPath, file); err != nil {
+			os.Remove(fullPath) // don't try again
+			http.NotFound(w, r) // bluff
+		} else {
+			http.ServeContent(w, r, info.Name(), time.Now(), file)
+		}
 	} else {
 		http.ServeContent(w, r, info.Name(), info.ModTime(), file)
 	}
 }
-
-
 
 func (s Handler) Post(w http.ResponseWriter, r *http.Request) {
 
