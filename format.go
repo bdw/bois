@@ -13,7 +13,7 @@ import (
 	"strconv"
 )
 
-var SuffixRegexp = regexp.MustCompile("\\.(jpe?g|png)$")
+var SuffixRegexp = regexp.MustCompile("\\.((q\\d+\\.)?jpe?g|png)$")
 var ScaleRegexp = regexp.MustCompile("^(scale-)?(\\d+)x(\\d+)$")
 var ClipRegexp = regexp.MustCompile("^clip-(\\d+)x(\\d+)$")
 var CropRegexp = regexp.MustCompile("^crop-(\\d+)x(\\d+)(-x(\\d+)y(\\d+))?$")
