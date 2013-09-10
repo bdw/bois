@@ -21,6 +21,7 @@ const ItemLength = 18
 const CreateAttempts = 10
 const FanOut = 3
 const SourceFileName = "source.jpeg"
+const MetaFileName = "metadata.txt"
 
 type Handler struct {
 	rootDir string
@@ -127,7 +128,32 @@ func makeImage(filename string, file *os.File) error {
 }
 
 func touchFile(sourcePath, formatName string) (string, error) {
-	return "", nil
+	operation, err := ParseOperation(formatName)
+	if err != nil {
+		return "", err
+	}
+	baseName := fmt.Sprintf("%s%s", operation.T.Name(), operation.F.Suffix())
+	fullPath := path.Join(path.Dir(sourcePath), baseName)
+	file, err := os.OpenFile(fullPath, os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	return fullPath, nil
+}
+
+func saveMetadata(sourcePath, metaData string) (string, error) {
+	fileName := path.Join(path.Dir(sourcePath), MetaFileName)
+	file, err := os.OpenFile(fileName,  os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+	if _, err := file.WriteString(metaData); err != nil {
+		return "", err
+	}
+	return fileName, nil
 }
 
 // Handle an upload request
@@ -154,6 +180,7 @@ func (s Handler) Put(w http.ResponseWriter, r *http.Request) {
 	} else {
 		// great success!
 		http.Redirect(w, r, s.urlPath(filename), 301)
+		fmt.Fprintln(w, "OK")
 	}
 }
 
@@ -190,7 +217,40 @@ func (s Handler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s Handler) Post(w http.ResponseWriter, r *http.Request) {
+	fullPath := s.filePath(r.URL)
+	if path.Base(fullPath) != SourceFileName {
+		http.Error(w, "Bad Request", 400)
+		return
+	}
+	if _, err := os.Stat(fullPath);  err != nil {
+		if os.IsNotExist(err) {
+			http.NotFound(w, r)
+		} else {
+			http.Error(w, "Internal Server Error", 500)
+		}
+		return
+	}
+	if format := r.FormValue("format"); format != "" {
+		filename, err := touchFile(fullPath, format)
+		if err != nil {
+			http.Error(w, "Bad Request", 400)
+			log.Println(err)
+		} else {
+			http.Redirect(w, r, s.urlPath(filename), 301)
+		}
+		return
+	}
 
+	if metaData := r.FormValue("metadata"); metaData != "" {
+		filename, err := saveMetadata(fullPath, metaData)
+		if err != nil {
+			http.Error(w, "Internal Server Error", 500)
+		} else {
+			http.Redirect(w, r, s.urlPath(filename), 301)
+		}
+		return
+	}
+	http.Error(w, "Bad Request", 400)
 }
 
 func (s Handler) Delete(w http.ResponseWriter, r *http.Request) {
@@ -217,6 +277,22 @@ func (s Handler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func imageDirname() string {
+	pwd, err := os.Getwd()
+	if err != nil {
+		panic(err)
+	}
+	return path.Join(pwd, "images")
+}
+
+func mustMakeDir(dirName string) {
+	if err := os.MkdirAll(dirName, 0755); err != nil {
+		panic(err)
+	}
+}
+
 func main() {
-	fmt.Println("OH HAI")
+	dirName := imageDirname()
+	mustMakeDir(dirName)
+	log.Fatal(http.ListenAndServe(":8080", &Handler{dirName}))
 }

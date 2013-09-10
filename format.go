@@ -186,7 +186,7 @@ func (s cropTransformation) Apply(in image.Image) (image.Image, error) {
 	centerY := (s.y * scale.Dy()) / 100
 	// clipped points
 	left := clip(0, scale.Dx()-s.width, centerX-(s.width/2))
-	top := clip(0, scale.Dy()-s.height, centerY-(s.width/2))
+	top := clip(0, scale.Dy()-s.height, centerY-(s.height/2))
 	// cut the correct piece
 	draw.Draw(out, out.Bounds(), tmp, image.Pt(left, top), draw.Src)
 	return out, nil
