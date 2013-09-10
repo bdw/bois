@@ -145,7 +145,7 @@ func touchFile(sourcePath, formatName string) (string, error) {
 
 func saveMetadata(sourcePath, metaData string) (string, error) {
 	fileName := path.Join(path.Dir(sourcePath), MetaFileName)
-	file, err := os.OpenFile(fileName,  os.O_CREATE|os.O_TRUNC, 0644)
+	file, err := os.OpenFile(fileName, os.O_CREATE|os.O_TRUNC, 0644)
 	if err != nil {
 		return "", err
 	}
@@ -222,7 +222,7 @@ func (s Handler) Post(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request", 400)
 		return
 	}
-	if _, err := os.Stat(fullPath);  err != nil {
+	if _, err := os.Stat(fullPath); err != nil {
 		if os.IsNotExist(err) {
 			http.NotFound(w, r)
 		} else {

@@ -8,9 +8,9 @@ import (
 	"image/draw"
 	"image/jpeg"
 	"image/png"
+	"io"
 	"regexp"
 	"strconv"
-	"io"
 )
 
 const DefaultQuality = 80
@@ -30,7 +30,6 @@ type Operation struct {
 	F Format
 }
 
-
 type jpegFormat jpeg.Options
 
 func (j jpegFormat) Save(i image.Image, f io.Writer) error {
@@ -42,7 +41,7 @@ func (j jpegFormat) Suffix() string {
 	return fmt.Sprintf(".%d.jpeg", jpeg.Options(j).Quality)
 }
 
-type pngFormat struct {}
+type pngFormat struct{}
 
 func (p pngFormat) Save(i image.Image, f io.Writer) error {
 	return png.Encode(f, i)
@@ -52,28 +51,25 @@ func (p pngFormat) Suffix() string {
 	return ".png"
 }
 
-
 var SuffixRegexp = regexp.MustCompile("\\.((q(\\d+)\\.)?jpe?g|png)$")
 var ScaleRegexp = regexp.MustCompile("^(scale-)?(\\d+)x(\\d+)$")
 var ClipRegexp = regexp.MustCompile("^clip-(\\d+)x(\\d+)$")
 var CropRegexp = regexp.MustCompile("^crop-(\\d+)x(\\d+)(-x(\\d+)y(\\d+))?$")
 var CutRegexp = regexp.MustCompile("^cut-(\\d+)x(\\d+)-t(\\d+)l(\\d+)(-s(\\d+)x(\\d+))?$")
 
-
-
-func ParseOperation (format string) (*Operation, error) {
+func ParseOperation(format string) (*Operation, error) {
 	var tr Transformation
 	var ft Format
-	if parts := SuffixRegexp.FindStringSubmatch(format); parts != nil  {
+	if parts := SuffixRegexp.FindStringSubmatch(format); parts != nil {
 		if len(parts[3]) > 0 { // we have a number, must be a jpeg
-			quality, _ := strconv.Atoi(parts[3]) 
-			ft  = jpegFormat(jpeg.Options{Quality: clip(0, 100, quality)})
+			quality, _ := strconv.Atoi(parts[3])
+			ft = jpegFormat(jpeg.Options{Quality: clip(0, 100, quality)})
 		} else if parts[1] == "jpeg" {
 			ft = jpegFormat(jpeg.Options{Quality: DefaultQuality})
 		} else {
 			ft = pngFormat{}
 		}
-		format = format[0:len(format)-len(parts[0])]
+		format = format[0 : len(format)-len(parts[0])]
 	} else {
 		ft = jpegFormat(jpeg.Options{Quality: DefaultQuality})
 	}
@@ -243,4 +239,3 @@ func (s cutTransformation) Apply(in image.Image) (image.Image, error) {
 	}
 	return out, nil
 }
-
